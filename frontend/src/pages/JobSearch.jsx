@@ -1,74 +1,91 @@
-import React, { useState } from "react";
-import FilterJob from "../components/FilterJob";
-import {useNavigate} from 'react-router-dom';
-const JobSearch = () => {
-  const [search, setSearch] = useState("");
-  const [location, setLocation] = useState("");
-  const navigate = useNavigate();
-  const jobs = [
-    {
-      id: 1,
-      title: "Software Engineer",
-      company: "TechCorp",
-      location: "Remote",
-      type: "Full-time",
-      salary: "$80,000 - $100,000",
-    },
-    {
-      id: 2,
-      title: "Product Manager",
-      company: "InnovateX",
-      location: "New York, USA",
-      type: "Hybrid",
-      salary: "$90,000 - $120,000",
-    },
-  ];
-  const handleApply = () =>{
-      navigate('/job')
-  }
+import { useState } from "react";
+import axios from "axios";
+
+export default function JobSearch() {
+  const [query, setQuery] = useState("");
+  const [location, setLocation] = useState("india");
+  const [jobType, setJobType] = useState("FULLTIME");
+  const [datePosted, setDatePosted] = useState("today");
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const searchJobs = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await axios.get("http://localhost:5000/api/user/search-jobs", {
+        params: { query, location, jobType, datePosted },
+      });
+      setJobs(response.data);
+    } catch (err) {
+      setError("Error fetching jobs. Please try again.");
+    }
+    setLoading(false);
+  };
+
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      {/* Search & Filters */}
-      <div className="flex flex-col md:flex-row gap-4 mb-6">
+    <div className="p-6 max-w-3xl mx-auto">
+      <h2 className="text-2xl font-bold mb-4">Search for Jobs</h2>
+      <form onSubmit={searchJobs} className="grid grid-cols-2 gap-4">
         <input
           type="text"
-          placeholder="Job title, keywords..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full md:w-1/2 p-3 border rounded-lg"
+          placeholder="Job Title / Skills"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="border p-2 rounded"
         />
         <input
           type="text"
-          placeholder="Location (City, Remote)"
+          placeholder="Location"
           value={location}
           onChange={(e) => setLocation(e.target.value)}
-          className="w-full md:w-1/3 p-3 border rounded-lg"
+          className="border p-2 rounded"
         />
-        <button className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">
-          Search
-        </button>
-      </div>
-      <div className="flex">
-        {/*sidebar */}
-        <div className="">
-          <FilterJob/>
-        </div>
-      {/* Job Listings */}
-      <div className="flex-1 p-5">
-        {jobs.map((job) => (
-          <div key={job.id} className="bg-white p-5 rounded-lg shadow-md mb-5">
-            <h2 className="text-xl font-semibold">{job.title}</h2>
-            <p className="text-gray-600">{job.company} • {job.location}</p>
-            <p className="text-gray-500">{job.type} • {job.salary}</p>
-            <button className="mt-3 bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600" onClick={handleApply}>
-              Apply Now
-            </button>
-          </div>
-        ))}
-      </div>
+        <select
+          value={jobType}
+          onChange={(e) => setJobType(e.target.value)}
+          className="border p-2 rounded"
+        >
+          <option value="">Select Job Type</option>
+          <option value="FULLTIME">Full-Time</option>
+          <option value="PARTTIME">Part-Time</option>
+          <option value="CONTRACTOR">Contractor</option>
+        </select>
+        <select
+          value={datePosted}
+          onChange={(e) => setDatePosted(e.target.value)}
+          className="border p-2 rounded"
+        >
+          <option value="">Date Posted</option>
+          <option value="today">Today</option>
+          <option value="week">This Week</option>
+          <option value="month">This Month</option>
+        </select>
+        <button type="submit" className="col-span-2 bg-blue-500 text-white p-2 rounded">Search</button>
+      </form>
+
+      {loading && <p className="mt-4">Loading jobs...</p>}
+      {error && <p className="mt-4 text-red-500">{error}</p>}
+      
+      <div className="mt-6">
+        {jobs.length > 0 ? (
+          jobs.map((job, index) => (
+            <div key={index} className="border p-4 rounded mb-4">
+              <h3 className="text-xl font-bold">{job.job_title}</h3>
+              <p className="text-gray-600">{job.location}</p>
+              <p className="text-gray-500">{job.employment_type}</p>
+              <a href={job.job_apply_link} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
+                Apply Now
+              </a>
+            </div>
+          ))
+        ) : (
+          <p className="mt-4">No jobs found.</p>
+        )}
       </div>
     </div>
   );
-};
-
-export default JobSearch;
+}

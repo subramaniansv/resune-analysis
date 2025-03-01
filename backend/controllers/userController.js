@@ -35,7 +35,7 @@ const registerUser = async (req, res) => {
 
     const token = jwt.sign({ userId: newUser._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
 
-    res.status(201).json({ success: true, token, message: "User registered successfully" });
+    res.status(201).json({ success: true,userId: newUser._id, token, message: "User registered successfully" });
 
   } catch (error) {
     console.error("Register Error:", error);
@@ -60,7 +60,7 @@ const loginUser = async (req, res) => {
 
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
 
-    res.status(200).json({ success: true, token, message: "Login successful" });
+    res.status(200).json({ success: true, userId: user._id,token, message: "Login successful" });
 
   } catch (error) {
     console.error("Login Error:", error);
@@ -217,5 +217,55 @@ const fetchJobs = async (req, res) => {
       });
   }
 };
+//search jobs by using filters
+const searchJobs = async (req,res ) => {
+  try {
+    const { query, location, jobType, datePosted } = req.query;
+    const apiKey = process.env.RAPID_API_KEY;
+    const apiUrl = `https://jsearch.p.rapidapi.com/search?query=${query}&country=us&num_pages=1`;
 
-module.exports = { registerUser, loginUser, uploadResume, fetchJobs };
+    const response = await axios.get(apiUrl, {
+        headers: {
+            'X-RapidAPI-Key':apiKey,
+            'X-RapidAPI-Host': 'jsearch.p.rapidapi.com',
+        },
+        params: {
+            query,                     // Job role or skills (e.g., "React Developer")
+            location,                  // City or Country (e.g., "San Francisco")
+            job_employment_type: jobType,  // FULLTIME, PARTTIME, CONTRACTOR
+            date_posted: datePosted,    // today, week, month
+            num_pages: 3,               // Number of pages to fetch
+        },
+    });
+
+    res.json(response.data.data); // Send jobs list as response
+} catch (error) {
+    console.error('Error fetching jobs:', error);
+    res.status(500).json({ message: 'Server Error', error: error.message });
+}
+}
+//fetch user data 
+const fetchUser = async (req,res) =>{
+      try {
+        const user = await userModel.findById(req.params.id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+        res.json(user);
+      } catch (error) {
+        res.status(500).json({ message: 'Server Error', error: err.message });
+      }
+      
+}
+//fetch skill
+const fetchSkill = async (req,res)=>{
+    try {
+      const {skill} = req.body;
+      const user = await userModel.findById(req.params.id);
+      if (!user) return res.status(404).json({ message: 'User not found' });
+      user.skills.push(skill);
+      await user.save();
+      res.json(user);
+    } catch (error) {
+      res.status(500).json({ message: 'Server Error', error: err.message });
+    }
+}
+module.exports = { registerUser, loginUser, uploadResume, fetchJobs ,searchJobs,fetchUser,fetchSkill};

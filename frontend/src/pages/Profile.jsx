@@ -1,194 +1,127 @@
-import React, { useState } from "react";
-import { Pencil, Upload, PlusCircle, Trash2 } from "lucide-react";
-import Workexp from "../components/Workexp";
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 
 const Profile = () => {
-  const [name, setName] = useState("John Doe");
-  const [jobTitle, setJobTitle] = useState("Software Engineer");
-  const [about, setAbout] = useState(
-    "Passionate software engineer with 5+ years of experience."
-  );
-  const [profileImage, setProfileImage] = useState(
-    "https://via.placeholder.com/150"
-  );
+    const [user, setUser] = useState(null);
+    const [newSkill, setNewSkill] = useState("");
+    const [jobs, setJobs] = useState([]);
+    const [loadingJobs, setLoadingJobs] = useState(false);
+    const userId = localStorage.getItem("userId");
 
-  const [skills, setSkills] = useState(["JavaScript", "React", "Node.js"]);
-  const [workExperience, setWorkExperience] = useState([
-    {
-      id: 1,
-      position: "Software Engineer",
-      company: "Google",
-      duration: "2020 - Present",
-      description: "Developed scalable applications and optimized backend performance.",
-    },
-  ]);
+    // Fetch user profile
+    useEffect(() => {
+        axios.get(`http://localhost:5000/api/user/profile/${userId}`)
+            .then(response => setUser(response.data))
+            .catch(error => console.error("Error fetching user:", error));
+    }, [userId]);
 
-  const [editing, setEditing] = useState({ field: null, value: "", index: null });
+    // Add new skill
+    const addSkill = () => {
+        if (!newSkill.trim()) return;
 
-  // Handle file upload
-  const handleImageUpload = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      setProfileImage(URL.createObjectURL(file));
-    }
-  };
+        axios.post(`http://localhost:5000/api/user/profile/${userId}/skills`, { skill: newSkill })
+            .then(response => {
+                setUser(response.data); // Update user state with new skill
+                setNewSkill(""); // Clear input field
+            })
+            .catch(error => console.error("Error adding skill:", error));
+    };
 
-  // Handle general field edit
-  const handleEdit = (field, value, index = null) => {
-    setEditing({ field, value, index });
-  };
-  
+    // Search for jobs
+    const searchJobs = async () => {
+        if (!user || !user.skills.length) {
+            alert("Add at least one skill to search for jobs.");
+            return;
+        }
 
-  // Save edits
-  const saveEdit = () => {
-    if (editing.field === "name") setName(editing.value);
-    if (editing.field === "jobTitle") setJobTitle(editing.value);
-    if (editing.field === "about") setAbout(editing.value);
+        setLoadingJobs(true);
+        try {
+            const query = user.skills.join(" "); // Use all user skills for the job search
+            const response = await axios.get(`http://localhost:5000/api/user/search-jobs`, {
+                params: {
+                    query,
+                    location: "India",
+                    jobType: "Fulltime",
+                    datePosted: "today",
+                },
+            });
+            setJobs(response.data);
+        } catch (error) {
+            console.error("Error fetching jobs:", error);
+        }
+        setLoadingJobs(false);
+    };
 
-    if (editing.field.startsWith("workExperience")) {
-      const fieldName = editing.field.split("-")[1];
-      setWorkExperience((prev) =>
-        prev.map((exp, i) =>
-          i === editing.index ? { ...exp, [fieldName]: editing.value } : exp
-        )
-      );
-    }
+    return (
+        <div className="flex flex-col items-center min-h-screen bg-gray-100 p-6">
+            {/* Profile Card */}
+            <div className="bg-white shadow-lg rounded-lg p-6 max-w-md w-full">
+                <h2 className="text-2xl font-bold text-center text-gray-800 mb-4">Profile</h2>
 
-    if (editing.field.startsWith("skills")) {
-      setSkills((prev) =>
-        prev.map((skill, i) => (i === editing.index ? editing.value : skill))
-      );
-    }
+                {user ? (
+                    <div>
+                        <h3 className="text-lg font-semibold text-gray-700">Name: {user.name}</h3>
 
-    setEditing({ field: null, value: "", index: null });
-  };
+                        <h4 className="text-md font-medium text-gray-600 mt-4">Skills:</h4>
+                        <ul className="bg-gray-50 p-3 rounded-lg shadow-sm mt-2">
+                            {user.skills.length > 0 ? (
+                                user.skills.map((skill, index) => (
+                                    <li key={index} className="text-sm text-gray-700 py-1 hover:text-blue-500">
+                                        {skill}
+                                    </li>
+                                ))
+                            ) : (
+                                <p className="text-gray-500 text-sm">No skills added yet.</p>
+                            )}
+                        </ul>
 
-  // Add new skill
-  const addSkill = () => {
-    setSkills([...skills, "New Skill"]);
-  };
+                        <div className="mt-4 flex">
+                            <input
+                                type="text"
+                                placeholder="Add a new skill"
+                                value={newSkill}
+                                onChange={(e) => setNewSkill(e.target.value)}
+                                className="flex-1 p-2 border rounded-l-lg text-sm outline-none focus:ring focus:ring-blue-300"
+                            />
+                            <button
+                                onClick={addSkill}
+                                className="bg-blue-500 text-white px-4 py-2 rounded-r-lg text-sm hover:bg-blue-600 transition-all"
+                            >
+                                Add
+                            </button>
+                        </div>
 
-  // Remove skill
-  const removeSkill = (index) => {
-    setSkills(skills.filter((_, i) => i !== index));
-  };
+                        <button
+                            onClick={searchJobs}
+                            className="w-full bg-green-500 text-white px-4 py-2 mt-4 rounded-lg text-sm hover:bg-green-600 transition-all"
+                        >
+                            {loadingJobs ? "Searching..." : "Search Jobs"}
+                        </button>
+                    </div>
+                ) : (
+                    <p className="text-center text-gray-500 animate-pulse">Loading...</p>
+                )}
+            </div>
 
-  // Add new work experience
-  const addWorkExperience = () => {
-    setWorkExperience([
-      ...workExperience,
-      {
-        id: workExperience.length + 1,
-        position: "New Position",
-        company: "New Company",
-        duration: "Year - Year",
-        description: "Job description...",
-      },
-    ]);
-  };
-
-  // Remove work experience
-  const removeWorkExperience = (index) => {
-    setWorkExperience(workExperience.filter((_, i) => i !== index));
-  };
-  const handleKeyPress = (e) => {
-  if (e.key === "Enter") {
-    saveEdit();
-  }
-};
-
-
-  return (
-    <div className="min-h-screen flex flex-col items-center bg-gray-100 p-6">
-      {/* Profile Section */}
-      <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-2xl text-center">
-        <div className="relative inline-block">
-          <img
-            src={profileImage}
-            alt="Profile"
-            className="w-32 h-32 rounded-full mx-auto mb-4 object-cover border border-gray-300"
-          />
-          <label className="absolute bottom-2 right-2 bg-gray-200 p-2 rounded-full cursor-pointer">
-            <Upload size={18} />
-            <input type="file" className="hidden" onChange={handleImageUpload} onKeyDown={handleKeyPress}
-            />
-          </label>
+            {/* Job Results Section */}
+            <div className="mt-6">
+        {jobs.length > 0 ? (
+          jobs.map((job, index) => (
+            <div key={index} className="border p-4 rounded mb-4">
+              <h3 className="text-xl font-bold">{job.job_title}</h3>
+              <p className="text-gray-600">{job.location}</p>
+              <p className="text-gray-500">{job.employment_type}</p>
+              <a href={job.job_apply_link} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
+                Apply Now
+              </a>
+            </div>
+          ))
+        ) : (
+          <p className="mt-4">No jobs found.</p>
+        )}
+      </div>
         </div>
-
-        {/* Name & Job Title */}
-        {editing.field === "name" ? (
-          <input
-            className="text-xl font-semibold text-center border p-2 w-full"
-            value={editing.value}
-            onChange={(e) => handleEdit("name", e.target.value)}
-            onBlur={saveEdit}
-            autoFocus
-            onKeyDown={handleKeyPress}
-
-          />
-        ) : (
-          <h2 className="text-xl font-semibold cursor-pointer" onClick={() => handleEdit("name", name)}>
-            {name} <Pencil size={14} className="inline ml-1 text-gray-500" />
-          </h2>
-        )}
-
-        {editing.field === "jobTitle" ? (
-          <input
-            className="text-gray-500 text-center border p-2 w-full"
-            value={editing.value}
-            onChange={(e) => handleEdit("jobTitle", e.target.value)}
-            onBlur={saveEdit}
-            autoFocus onKeyDown={handleKeyPress}
-
-          />
-        ) : (
-          <p className="text-gray-500 cursor-pointer" onClick={() => handleEdit("jobTitle", jobTitle)}>
-            {jobTitle} <Pencil size={14} className="inline ml-1 text-gray-500" />
-          </p>
-        )}
-      </div>
-
-      {/* Skills Section */}
-<div className="bg-white p-6 rounded-lg shadow-md w-full max-w-2xl mt-6">
-  <h2 className="text-xl font-semibold flex justify-between items-center">
-    Skills
-    <PlusCircle size={18} className="cursor-pointer text-blue-500" onClick={addSkill} />
-  </h2>
-  <div className="flex flex-wrap mt-2 gap-2">
-    {skills.map((skill, index) => (
-      <div key={index} className="flex items-center bg-gray-200 px-3 py-1 rounded-full">
-        {editing.field === `skills-${index}` ? (
-          <input
-            type="text"
-            className="bg-transparent border-none outline-none px-2"
-            value={editing.value}
-            onChange={(e) => setEditing({ ...editing, value: e.target.value })}
-            onBlur={saveEdit} // Save when focus is lost
-            autoFocus onKeyDown={handleKeyPress}
-          />
-        ) : (
-          <span onClick={() => handleEdit(`skills-${index}`, skill, index)} className="cursor-pointer">
-            {skill} <Pencil size={14} className="ml-1 text-gray-500" />
-          </span>
-        )}
-        <Trash2
-          size={14}
-          className="ml-2 cursor-pointer text-red-500"
-          onClick={() => removeSkill(index)}
-        />
-      </div>
-    ))}
-  </div>
-</div>
-
-
-      <Workexp 
-  workExperience={workExperience} 
-  setWorkExperience={setWorkExperience} // Pass the setter function
-/>
-
-    </div>
-  );
+    );
 };
 
 export default Profile;

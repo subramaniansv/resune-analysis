@@ -15,6 +15,7 @@ const Login = () => {
           alert("Login successfull");
           console.log(res.data);
           localStorage.setItem("token",res.data.token);
+          localStorage.setItem("userId", response.data.userId);
           navigate("/");
       } catch (error) {
         alert(error.response.data.message);
@@ -24,6 +25,7 @@ const Login = () => {
         const res = await axios.post("http://localhost:5000/api/user/register",{name,email,password});
         alert("Sign up successful");
         localStorage.setItem("token",res.data.token);
+        localStorage.setItem("userId", response.data.userId)
         navigate("/");
       } catch (error) {
         alert(error.response.data.message);
