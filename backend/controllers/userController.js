@@ -4,6 +4,8 @@ const userModel = require("../models/User.js");
 const jwt = require("jsonwebtoken");
 const pdfParse = require("pdf-parse");
 const axios = require("axios");
+const passport = require("passport");
+const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const { processResume } = require("../utils/resumeParser.js");
 // Register User
 const registerUser = async (req, res) => {
@@ -66,6 +68,50 @@ const loginUser = async (req, res) => {
     console.error("Login Error:", error);
     res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
+};
+//google auth
+passport.use(
+  new GoogleStrategy(
+    {
+      clientID: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackURL: "/api/user/google/callback",
+    },
+    async (accessToken, refreshToken, profile, done) => {
+      try {
+        let user = await userModel.findOne({ email: profile.emails[0].value });
+
+        if (!user) {
+          user = new userModel({
+            name: profile.displayName,
+            email: profile.emails[0].value,
+            password: "", // No password for Google auth users
+          });
+          await user.save();
+        }
+
+        const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
+
+        done(null, { userId: user._id, token, name: user.name, email: user.email });
+      } catch (error) {
+        done(error, null);
+      }
+    }
+  )
+);
+
+// Route for Google Auth
+const googleAuth = passport.authenticate("google", { scope: ["profile", "email"] });
+
+// Callback route
+const googleAuthCallback = (req, res) => {
+  passport.authenticate("google", { session: false }, (err, user) => {
+    if (err || !user) {
+      return res.status(400).json({ success: false, message: "Google Authentication Failed" });
+    }
+
+    res.redirect(`http://localhost:3000/auth-success?token=${user.token}`);
+  })(req, res);
 };
 
 //upload resume and update the data of the user in database
@@ -251,7 +297,7 @@ const fetchUser = async (req,res) =>{
         if (!user) return res.status(404).json({ message: 'User not found' });
         res.json(user);
       } catch (error) {
-        res.status(500).json({ message: 'Server Error', error: err.message });
+        res.status(500).json({ message: "Internal Server Error", error: err.message });
       }
       
 }
@@ -268,4 +314,4 @@ const fetchSkill = async (req,res)=>{
       res.status(500).json({ message: 'Server Error', error: err.message });
     }
 }
-module.exports = { registerUser, loginUser, uploadResume, fetchJobs ,searchJobs,fetchUser,fetchSkill};
+module.exports = { registerUser, loginUser,googleAuth, googleAuthCallback, uploadResume, fetchJobs ,searchJobs,fetchUser,fetchSkill};
